@@ -1,0 +1,120 @@
+// Esquema Prisma para Frutería POS (SQLite local, cero configuración)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum SoldBy {
+  WEIGHT
+  UNIT
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+}
+
+enum CashMovementType {
+  INFLOW
+  OUTFLOW
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  /// Obligatorio para abarrotes empaquetados, opcional para fruta suelta
+  barcode    String?  @unique
+  /// Código rápido de báscula/fruta, ej. "4011"
+  plu        String?  @unique
+  name       String
+  /// FRUTAS | VERDURAS | ABARROTES | LACTEOS | OTROS
+  category   String
+  soldBy     SoldBy
+  /// Precio por kilo (WEIGHT) o por pieza (UNIT)
+  price      Float
+  cost       Float
+  /// Admite decimales: 24.500 kg o 12.0 piezas
+  stock      Float    @default(0)
+  minStock   Float    @default(0)
+  imageUrl   String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  saleItems    SaleItem[]
+  wasteRecords WasteRecord[]
+
+  @@index([category])
+  @@index([name])
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  /// Folio consecutivo. SQLite sólo permite autoincrement en la PK, por lo que
+  /// se asigna dentro de la transacción de venta (max + 1) y es único.
+  folio         Int           @unique
+  subtotal      Float
+  discount      Float         @default(0)
+  total         Float
+  paymentMethod PaymentMethod
+  amountPaid    Float
+  changeGiven   Float         @default(0)
+  customerPhone String?
+  createdAt     DateTime      @default(now())
+
+  items SaleItem[]
+
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id          String  @id @default(cuid())
+  saleId      String
+  productId   String
+  /// Snapshot del nombre para el ticket aunque el producto cambie
+  productName String
+  /// 1.345 kg o 2.0 piezas
+  quantity    Float
+  unitPrice   Float
+  subtotal    Float
+  discount    Float   @default(0)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+/// Control de mermas
+model WasteRecord {
+  id            String   @id @default(cuid())
+  productId     String
+  /// kg o piezas echadas a perder
+  quantity      Float
+  /// MADURACION | PODRIDO | GOLPEADO | CADUCADO
+  reason        String
+  estimatedLoss Float
+  recordedAt    DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([recordedAt])
+}
+
+/// Caja chica: entradas y salidas de efectivo
+model CashMovement {
+  id        String           @id @default(cuid())
+  type      CashMovementType
+  amount    Float
+  /// PROVEEDOR_MERCANCIA | GASTO_LOCAL | FONDO_INICIAL | RETIRO
+  category  String
+  note      String           @default("")
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt])
+}
