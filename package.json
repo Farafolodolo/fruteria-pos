@@ -10,9 +10,9 @@
   "scripts": {
     "postinstall": "npm run db:generate -w server",
     "seed": "npm run db:push -w server && npm run seed -w server",
-    "dev": "concurrently -n server,client -c emerald,amber \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev": "concurrently -n server,client -c green,yellow \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w server && npm run build -w client",
-    "test": "npm run test -w server",
+    "test": "npm run test -w server && npm run test -w client",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w client"
   },
   "devDependencies": {
