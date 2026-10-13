@@ -27,7 +27,7 @@ export const isPerishable = (p: Product) => p.category === 'FRUTAS' || p.categor
 
 function Card({ p, onPick, remate }: { p: Product; onPick: (p: Product) => void; remate: number }) {
   const low = p.stock <= p.minStock
-  const off = remate > 0 && isPerishable(p) && p.soldBy === 'WEIGHT'
+  const off = remate > 0 && isPerishable(p)
   const price = off ? Math.round(p.price * (100 - remate)) / 100 : p.price
   return (
     <button
