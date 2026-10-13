@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-ink: #0b1220;
+  --color-panel: #111a2e;
+  --color-panel-2: #172238;
+  --color-line: #24324d;
+  --color-leaf: #10b981;
+  --color-leaf-dark: #059669;
+  --color-mango: #f59e0b;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 10% -10%, #0f2a2a 0%, transparent 60%), var(--color-ink);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+input, textarea { user-select: text; }
+
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+@keyframes pop { 0% { transform: scale(.94); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.pop { animation: pop .25s ease-out; }
+@keyframes flash { from { background-color: rgba(16,185,129,.35); } to { background-color: transparent; } }
+.flash { animation: flash .6s ease-out; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #24324d; border-radius: 8px; }
+
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position: absolute; left: 0; top: 0; background: #fff; color: #000; }
+}
