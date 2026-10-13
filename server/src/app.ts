@@ -4,6 +4,8 @@ import { errorMiddleware } from './lib/http'
 import { productsRouter } from './routes/products'
 import { salesRouter } from './routes/sales'
 import { wasteRouter } from './routes/waste'
+import { cashRouter } from './routes/cash'
+import { reportsRouter } from './routes/reports'
 
 export function createApp() {
   const app = express()
@@ -14,6 +16,8 @@ export function createApp() {
   app.use('/api/products', productsRouter)
   app.use('/api/sales', salesRouter)
   app.use('/api/waste', wasteRouter)
+  app.use('/api/cash', cashRouter)
+  app.use('/api/reports', reportsRouter)
 
   app.use((_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }))
   app.use(errorMiddleware)
