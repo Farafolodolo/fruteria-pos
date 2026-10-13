@@ -12,6 +12,9 @@ import { CartSidebar } from '@/components/CartSidebar'
 import { WeightModal } from '@/components/WeightModal'
 import { PaymentModal } from '@/components/PaymentModal'
 import { TicketModal } from '@/components/TicketModal'
+import { ScaleBadge, ScalePanel } from '@/components/ScalePanel'
+import { PrintActions } from '@/components/PrintActions'
+import { useBarcodeScanner } from '@/lib/useBarcodeScanner'
 
 type ModalState = { k: 'weight'; product: Product; line?: CartLine } | { k: 'pay' } | null
 interface Toast { id: number; msg: string; kind: 'ok' | 'err' }
@@ -93,6 +96,15 @@ export default function App() {
       notify(matches.length ? 'Selecciona un producto de la lista' : `Código ${code} no encontrado`, 'err')
     }
   }
+
+  // Lector físico (keyboard wedge) aunque el foco no esté en el buscador
+  useBarcodeScanner({
+    enabled: !modal && !ticket,
+    onScan: (code) => {
+      const p = products.find((x) => x.barcode === code || x.plu === code)
+      if (p) { sound.scan(); pick(p) } else { sound.error(); notify(`Código ${code} no encontrado`, 'err') }
+    },
+  })
 
   const confirmWeight = (netKg: number) => {
     if (modal?.k !== 'weight') return
@@ -204,6 +216,7 @@ export default function App() {
         <div className="hidden items-center gap-1 text-[11px] text-slate-500 xl:flex">
           <Keyboard size={14} /> F1 Buscar · F2 Cobrar · F4 Merma · Esc Cancelar
         </div>
+        <ScaleBadge />
         <Clock />
       </header>
 
@@ -235,6 +248,7 @@ export default function App() {
         discountPercent={modal?.k === 'weight' ? modal.line?.discountPercent : 0}
         onClose={() => setModal(null)}
         onConfirm={confirmWeight}
+        scaleSlot={({ setGrossKg }) => <ScalePanel onReading={setGrossKg} />}
       />
       <PaymentModal
         open={modal?.k === 'pay'}
@@ -244,7 +258,7 @@ export default function App() {
         onClose={() => setModal(null)}
         onConfirm={pay}
       />
-      <TicketModal ticket={ticket} onClose={() => setTicket(null)} />
+      <TicketModal ticket={ticket} onClose={() => setTicket(null)} extraActions={(t, w) => <PrintActions ticket={t} width={w} />} />
 
       {toast && (
         <div role="status" className={cn(
