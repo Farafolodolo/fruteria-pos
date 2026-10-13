@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Apple, Keyboard, Search, ShoppingCart, Trash2, X } from 'lucide-react'
+import { Apple, Keyboard, Search, ShoppingCart, Trash2, Wallet, X } from 'lucide-react'
 import { api, ApiError } from '@/lib/api'
 import { useCart } from '@/lib/cart'
 import { sound } from '@/lib/sound'
@@ -16,6 +16,7 @@ import { ScaleBadge, ScalePanel } from '@/components/ScalePanel'
 import { PrintActions } from '@/components/PrintActions'
 import { RemateToggle } from '@/components/RemateToggle'
 import { WastePage } from '@/components/WastePage'
+import { CashPage } from '@/components/CashPage'
 import { useBarcodeScanner } from '@/lib/useBarcodeScanner'
 
 type ModalState = { k: 'weight'; product: Product; line?: CartLine } | { k: 'pay' } | null
@@ -48,7 +49,7 @@ export default function App() {
   const [toast, setToast] = useState<Toast | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
-  const [view, setView] = useState<'pos' | 'waste'>('pos')
+  const [view, setView] = useState<'pos' | 'waste' | 'cash'>('pos')
   /** Modo Remate: 0 = apagado, 30 o 50 = % de descuento express en fruta/verdura */
   const [remate, setRemate] = useState(0)
   const remateFor = (p: Product) => (remate > 0 && isPerishable(p) ? remate : 0)
@@ -181,11 +182,12 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F1') { e.preventDefault(); setView('pos'); setTimeout(() => searchRef.current?.focus(), 0) }
+      else if (e.key === 'F3') { e.preventDefault(); if (!modal && !ticket) setView((v) => (v === 'cash' ? 'pos' : 'cash')) }
       else if (e.key === 'F4') { e.preventDefault(); if (!modal && !ticket) setView((v) => (v === 'waste' ? 'pos' : 'waste')) }
       else if (e.key === 'F2') {
         e.preventDefault()
         if (!modal && !ticket && view === 'pos' && cart.lines.length) { setPayError(null); setModal({ k: 'pay' }) }
-      } else if (e.key === 'Escape' && !modal && !ticket) { if (view === 'waste') setView('pos'); else cancelSale() }
+      } else if (e.key === 'Escape' && !modal && !ticket) { if (view !== 'pos') setView('pos'); else cancelSale() }
       else if (e.key === 'Enter' && ticket) { e.preventDefault(); setTicket(null); searchRef.current?.focus() }
     }
     window.addEventListener('keydown', onKey)
@@ -221,7 +223,7 @@ export default function App() {
         </label>
 
         <nav aria-label="Vistas" className="flex gap-1 rounded-xl bg-ink p-1">
-          {([['pos', 'Venta', ShoppingCart], ['waste', 'Merma', Trash2]] as const).map(([id, label, Icon]) => (
+          {([['pos', 'Venta', ShoppingCart], ['waste', 'Merma', Trash2], ['cash', 'Caja', Wallet]] as const).map(([id, label, Icon]) => (
             <button key={id} onClick={() => setView(id)} aria-current={view === id}
               className={cn('flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition',
                 view === id ? 'bg-leaf text-black' : 'text-slate-300 hover:bg-panel-2')}>
@@ -231,7 +233,7 @@ export default function App() {
         </nav>
         <RemateToggle value={remate} onChange={setRemate} />
         <div className="hidden items-center gap-1 text-[11px] text-slate-500 2xl:flex">
-          <Keyboard size={14} /> F1 Buscar · F2 Cobrar · F4 Merma · Esc Cancelar
+          <Keyboard size={14} /> F1 Buscar · F2 Cobrar · F3 Caja · F4 Merma · Esc Cancelar
         </div>
         <ScaleBadge />
         <Clock />
@@ -245,6 +247,8 @@ export default function App() {
 
       {view === 'waste' ? (
         <WastePage products={products} onChanged={load} notify={notify} />
+      ) : view === 'cash' ? (
+        <CashPage notify={notify} />
       ) : (
       <main className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_400px]">
         <section className="flex min-h-0 flex-col">
