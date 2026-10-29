@@ -5,15 +5,17 @@
   "description": "Punto de Venta local-first para frutería y abarrotes (peso y piezas)",
   "workspaces": [
     "server",
-    "client"
+    "client",
+    "currency-service"
   ],
   "scripts": {
     "postinstall": "npm run db:generate -w server",
     "seed": "npm run db:push -w server && npm run seed -w server",
-    "dev": "concurrently -n server,client -c green,yellow \"npm run dev -w server\" \"npm run dev -w client\"",
-    "build": "npm run build -w server && npm run build -w client",
-    "test": "npm run test -w server && npm run test -w client",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w client"
+    "dev": "concurrently -n server,client,currency -c green,yellow,magenta \"npm run dev -w server\" \"npm run dev -w client\" \"npm run dev -w currency-service\"",
+    "dev:currency": "npm run dev -w currency-service",
+    "build": "npm run build -w server && npm run build -w client && npm run build -w currency-service",
+    "test": "npm run test -w server && npm run test -w client && npm run test -w currency-service",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client && npm run typecheck -w currency-service"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

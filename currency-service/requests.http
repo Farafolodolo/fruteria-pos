@@ -1,0 +1,109 @@
+### Variables de entorno locales
+@baseUrl = http://localhost:3002
+@adminToken = fruteria-admin-secret-2026
+
+### 1. Healthcheck del Microservicio
+GET {{baseUrl}}/health
+Accept: application/json
+
+### 2. Obtener Tipo de Cambio Actual USD -> MXN (Éxito 200 OK / 502 Bad Gateway)
+# Retorna la tasa actual USD a MXN, la fecha de actualización y la fuente (api, cache o manual_override).
+# Cuenta con caché en memoria de 10 minutos.
+GET {{baseUrl}}/api/v1/rates/usd-mxn
+Accept: application/json
+
+### 3. Conversión de Divisas: MXN a USD (Éxito 200 OK)
+# Convierte $100 pesos mexicanos a dólares estadounidenses
+POST {{baseUrl}}/api/v1/convert
+Content-Type: application/json
+
+{
+  "amount": 100,
+  "from": "MXN",
+  "to": "USD"
+}
+
+### 4. Conversión de Divisas: USD a MXN (Éxito 200 OK)
+# Convierte $20 dólares estadounidenses a pesos mexicanos
+POST {{baseUrl}}/api/v1/convert
+Content-Type: application/json
+
+{
+  "amount": 20,
+  "from": "USD",
+  "to": "MXN"
+}
+
+### 5. Conversión de Divisas: Validación Error por Monto Negativo (Error 400 Bad Request)
+POST {{baseUrl}}/api/v1/convert
+Content-Type: application/json
+
+{
+  "amount": -50,
+  "from": "MXN",
+  "to": "USD"
+}
+
+### 6. Conversión de Divisas: Validación Error por Moneda Inválida (Error 400 Bad Request)
+POST {{baseUrl}}/api/v1/convert
+Content-Type: application/json
+
+{
+  "amount": 100,
+  "from": "EUR",
+  "to": "USD"
+}
+
+### 7. Override Manual de Tasa: Rechazo por Falta de Token (Error 401 Unauthorized)
+POST {{baseUrl}}/api/v1/rates/override
+Content-Type: application/json
+
+{
+  "manualRate": 20.50
+}
+
+### 8. Override Manual de Tasa: Rechazo por Token Inválido (Error 401 Unauthorized)
+POST {{baseUrl}}/api/v1/rates/override
+Authorization: Bearer token-incorrecto-xyz
+Content-Type: application/json
+
+{
+  "manualRate": 20.50
+}
+
+### 9. Override Manual de Tasa: Éxito con Bearer Token (Éxito 200 OK)
+# Fija manualmente la tasa de cambio a $20.50 MXN por USD (para contingencia offline)
+POST {{baseUrl}}/api/v1/rates/override
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "manualRate": 20.50
+}
+
+### 10. Override Manual de Tasa: Éxito alternativo con header x-api-key (Éxito 200 OK)
+POST {{baseUrl}}/api/v1/rates/override
+x-api-key: {{adminToken}}
+Content-Type: application/json
+
+{
+  "manualRate": 21.00
+}
+
+### 11. Override Manual de Tasa: Error 400 por Tasa Inválida (Monto <= 0)
+POST {{baseUrl}}/api/v1/rates/override
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "manualRate": -5
+}
+
+### 12. Verificar que el Tipo de Cambio ahora refleja la Tasa Manual Override
+GET {{baseUrl}}/api/v1/rates/usd-mxn
+Accept: application/json
+
+### 13. Limpiar Tasa Manual y Regresar a Tasa Dinámica de la API Externa (Éxito 200 OK)
+DELETE {{baseUrl}}/api/v1/rates/override
+Authorization: Bearer {{adminToken}}
+
