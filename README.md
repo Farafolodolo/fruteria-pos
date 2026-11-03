@@ -1,212 +1,186 @@
-# 🍎 Frutería POS
+# 🍎 Frutería POS & Currency Microservice
 
-Punto de Venta **local-first** para frutería y abarrotes con venta híbrida **por peso (kg / gramos)** y **por pieza / código de barras**. Funciona 100 % sin internet: un servidor local (Express + SQLite) y una interfaz React pensada para pantalla táctil y atajos de teclado.
-
-![stack](https://img.shields.io/badge/React-19-61dafb) ![ts](https://img.shields.io/badge/TypeScript-5.7-3178c6) ![vite](https://img.shields.io/badge/Vite-6-646cff) ![tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8) ![prisma](https://img.shields.io/badge/Prisma-6-2d3748) ![sqlite](https://img.shields.io/badge/SQLite-local-003b57)
+A local-first Point of Sale (POS) system integrated with a dedicated **USD/MXN Currency Conversion Microservice**, built for grocery stores and fruit markets.
 
 ---
 
-## ⚡ Instalación en un solo paso
+## ⚡ Quick Start (Run in 3 Steps)
 
-Requisitos: **Node.js ≥ 20** (probado en 22).
+### Prerequisites
+- **Node.js** >= 20.0.0
+- **npm** >= 10.0.0
 
+### Step 1: Clone and Install
 ```bash
 git clone https://github.com/Farafolodolo/fruteria-pos.git
 cd fruteria-pos
-npm install && npm run seed && npm run dev
+npm install
 ```
+*(Workspace packages `client`, `server`, and `currency-service` will install dependencies automatically).*
 
-| Servicio | URL |
-|----------|-----|
-| Interfaz POS | http://localhost:5173 |
-| API local | http://localhost:3001/api/health |
-
-- `npm install` instala ambos workspaces y genera el cliente de Prisma (`postinstall`).
-- `npm run seed` crea `server/prisma/dev.db` (SQLite) y la puebla con productos mexicanos reales, ventas demo y fondo inicial. **Es destructivo**: reinicia los datos.
-- `npm run dev` levanta API (puerto 3001) y cliente Vite (5173) con recarga en caliente.
-
-Otros scripts: `npm test` · `npm run typecheck` · `npm run build`.
-
----
-
-## 🖥️ Vista de la Terminal POS (esquema)
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🍏 Frutería La Fresca │ 🔍 Buscar nombre / código de barras / PLU (F1)      │Venta│Merma│Caja│
-│                       │                                    [REMATE OFF] ● Modo emulador 12:41│
-├───────────────────────────────────────────────────────────────┬─────────────────────────────┤
-│ [🍎 Frutas] [🥬 Verduras] [🛒 Abarrotes] [🔥 Más Vendidos]     │ 🧺 Compra actual            │
-│ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                   │                             │
-│ │   🍌   │ │   🍋   │ │   🥑   │ │   🍎   │                   │ 🍌 Plátano Tabasco          │
-│ │Plátano │ │ Limón  │ │Aguacate│ │Manzana │                   │   1.350 kg × $22.00/kg      │
-│ │$22/kg  │ │$38/kg  │ │$89/kg  │ │$52/kg  │                   │                    $29.70   │
-│ │PLU 4011│ │PLU 4048│ │PLU 4225│ │PLU 4133│                   │ 🥤 Coca-Cola 600ml          │
-│ └────────┘ └────────┘ └────────┘ └────────┘                   │   [-] 2 [+] × $20.00/pz     │
-│ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                   │                    $40.00   │
-│ │   🍊   │ │   🍉   │ │   🥭   │ │   🍓   │                   │                             │
-│ │ ...    │ │ ...    │ │ ...    │ │ ...    │                   │ Subtotal (2)       $69.70   │
-│ └────────┘ └────────┘ └────────┘ └────────┘                   │ TOTAL              $69.70   │
-│                                                               │ [   COBRAR (F2)   ]         │
-└───────────────────────────────────────────────────────────────┴─────────────────────────────┘
-```
-
-### Modal de pesaje
-
-```
-┌──────────────────────── Pesar producto ─────────────────────────┐
-│ 🍅 Jitomate Saladet            $28.00 / kg · PLU 4087           │
-│ ● Modo emulador   [ 1.350 kg  ESTABLE ]   ▬▬▬▬●▬▬▬▬ (slider)    │
-│ Peso bruto (kg)  [-] [  1.358  ] [+] [↺]                        │
-│ [+100 g] [+250 g] [+500 g] [+1 kg]                              │
-│ Tara: (Sin tara) (Bolsa 8 g) (Bolsa grande 15 g) (Charola 40 g) │
-│ Bruto 1.358 kg | Tara -0.008 kg | Neto 1.350 kg                 │
-│ 1.350 kg × $28.00 = $37.80                                      │
-│ [        Agregar a la compra (Enter)        ]                   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🏗️ Arquitectura
-
-```
-                ┌──────────────────────────── Navegador (Chrome / Edge) ───────────────────────────┐
-                │  React 19 + TS + Tailwind 4 + Radix UI + Lucide                                  │
-                │                                                                                  │
-                │  App.tsx ── vistas: Venta │ Merma │ Caja        atajos: F1 F2 F3 F4 Esc          │
-                │    │                                                                             │
-                │    ├─ lib/cart.ts ........ carrito + totales exactos (enteros)                   │
-                │    ├─ lib/scale.ts ....... Web Serial (Torrey/Rhino) + EMULADOR  ──► USB/RS-232  │
-                │    ├─ lib/useBarcodeScanner ... lector "keyboard wedge" por temporización        │
-                │    ├─ lib/escpos.ts ...... bytes ESC/POS 58/80 mm ──► impresora térmica (Serial) │
-                │    ├─ lib/ticket.ts ...... ticket HTML imprimible + mensaje WhatsApp / Web Share │
-                │    └─ lib/sound.ts ....... beeps WebAudio (escaneo, agregado, cobro, error)      │
-                └───────────────────────────────┬──────────────────────────────────────────────────┘
-                                                │ fetch /api/*  (proxy de Vite en dev)
-                                                ▼
-                ┌──────────────────────── Servidor local :3001 (Node + Express + TS) ──────────────┐
-                │  routes/products  routes/sales  routes/waste  routes/cash  routes/reports        │
-                │  lib/money.ts ... aritmética en centavos / gramos con redondeo half-up           │
-                │  lib/cashCut.ts .. corte X / Z                                                   │
-                │  zod: validación  ·  Prisma Client: acceso a datos  (transacciones)              │
-                └───────────────────────────────┬──────────────────────────────────────────────────┘
-                                                ▼
-                                   server/prisma/dev.db  (SQLite, un solo archivo)
-```
-
-### Estructura del repositorio
-
-```
-fruteria-pos/
-├─ package.json              # npm workspaces + scripts raíz
-├─ client/                   # Vite + React
-│  └─ src/
-│     ├─ App.tsx
-│     ├─ components/         # ProductGrid, CartSidebar, WeightModal, PaymentModal, TicketModal,
-│     │                      # ScalePanel, PrintActions, RemateToggle, WastePage, CashPage, Modal
-│     └─ lib/                # cart, money, scale, escpos, ticket, sound, api, useBarcodeScanner
-└─ server/
-   ├─ prisma/ schema.prisma · seed.ts
-   └─ src/ app.ts · index.ts · db.ts · lib/ · routes/
-```
-
----
-
-## 🗄️ Modelo de datos
-
-```
-Product ──< SaleItem >── Sale            Product ──< WasteRecord         CashMovement
- id, barcode?, plu?, name,                id, folio, subtotal,            id, productId, quantity,       id, type (INFLOW|OUTFLOW),
- category, soldBy (WEIGHT|UNIT),          discount, total,                reason, estimatedLoss,         amount, category, note,
- price, cost, stock, minStock,            paymentMethod, amountPaid,      recordedAt                     createdAt
- imageUrl?, isActive                      changeGiven, customerPhone?
-```
-
-Detalles en [`server/prisma/schema.prisma`](server/prisma/schema.prisma). Notas:
-
-- `stock`, `quantity`: `Float` con 3 decimales efectivos (24.500 kg / 12.0 pz).
-- **Folio**: SQLite sólo permite `autoincrement` en la llave primaria, por lo que `folio` es `Int @unique` asignado como `max + 1` **dentro de la transacción** de venta.
-- `SaleItem.subtotal` es el importe **bruto** de la línea y `SaleItem.discount` el monto descontado (neto = subtotal − discount). Se guarda `productName` como instantánea para el ticket.
-
----
-
-## 🧮 Precisión financiera
-
-Los flotantes de JavaScript no son seguros para dinero (`0.1 + 0.2 ≠ 0.3`). Todo cálculo usa **enteros**:
-
-- Cantidad → gramos enteros (`round(qty × 1000)`), dinero → centavos.
-- Importe de línea: `round( gramos × precio_en_centavos / 1000 )` (half-up).
-- `1.350 kg × $28.00 = $37.80`, `0.333 kg × $22 = $7.33`, `1.345 kg × $89 = $119.71`.
-- **El servidor recalcula todo** con los precios de la base de datos; el cliente nunca decide el total.
-
-Cubierto por pruebas (`npm test`).
-
----
-
-## ✅ Funcionalidades
-
-| Módulo | Qué hace |
-|--------|----------|
-| **Terminal POS** | Pestañas Frutas / Verduras / Abarrotes / Más Vendidos, búsqueda universal (nombre, código de barras, PLU), carrito en vivo con edición rápida, alertas de stock bajo. |
-| **Pesaje** | Modal con +100 g / +250 g / +500 g / +1 kg, entrada decimal, **tara** (bolsa, charola, personalizada), báscula serial o emulador con lectura en tiempo real. |
-| **Cobro** | Teclado numérico, billetes rápidos $50/$100/$200/$500, botón *Exacto*, cambio instantáneo, efectivo / tarjeta / transferencia. |
-| **Ticket** | Vista previa térmica 58 / 80 mm, impresión del navegador, **ESC/POS** por USB-serial o archivo `.escpos`, **WhatsApp** con emojis y Web Share. |
-| **Remate** | Toggle en cabecera: −30 % / −50 % exprés en frutas y verduras; el descuento queda registrado por línea. |
-| **Merma** (F4) | Selección del producto, peso o piezas, motivo (maduración, podrido, golpeado, caducado), pérdida al costo, descuento de inventario y deshacer. |
-| **Caja y gastos** (F3) | Fondo inicial, pagos a proveedor, gastos, retiros. **Corte X / Z** con ventas por método, efectivo esperado en cajón, mermas y utilidad. |
-
-### ⌨️ Atajos
-
-| Tecla | Acción |
-|-------|--------|
-| `F1` | Buscar (vuelve a Venta) |
-| `F2` | Cobrar |
-| `F3` | Caja y corte |
-| `F4` | Merma |
-| `Esc` | Cancelar venta / cerrar modal / volver a Venta |
-| `Enter` | Confirmar (búsqueda, peso, cobro, nueva venta) |
-
----
-
-## 🔌 Hardware
-
-Consulta [`docs/HARDWARE.md`](docs/HARDWARE.md) para báscula, lector de códigos e impresora. Resumen:
-
-- **Báscula Torrey / Rhino** vía Web Serial (Chrome / Edge, `localhost` o HTTPS). Sin hardware, usa el **emulador** interactivo.
-- **Lector de código de barras** USB en modo teclado: se detecta por velocidad de tecleo, no requiere configuración.
-- **Impresora térmica ESC/POS** 58 / 80 mm (CP858 para acentos y ñ).
-
-## 📚 API
-
-Referencia de endpoints en [`docs/API.md`](docs/API.md).
-
----
-
-## 🌿 Flujo de trabajo Git
-
-Cada hito se desarrolló en una rama temática con *Conventional Commits* y se fusionó a `main` con `--no-ff`:
-
-```
-setup/project-scaffolding        feat/db-sqlite-prisma           feat/backend-api-engine
-feat/pos-terminal-ui             feat/scale-and-scanner-integration
-feat/waste-and-discount-system   feat/cash-flow-and-reports      docs/production-readme
-```
-
+### Step 2: Environment Configuration & Database Setup
 ```bash
-git log --oneline --graph
+# 1. Setup Currency Service environment file
+cp currency-service/.env.example currency-service/.env
+
+# 2. Initialize SQLite database & seed default demo data
+npm run seed
+```
+> **Note for evaluators:** `EXCHANGE_API_KEY` in `currency-service/.env` is optional. If left empty, the microservice automatically falls back to the public `open.er-api.com` endpoint. No API registration or credit card is required.
+
+### Step 3: Run All Services
+```bash
+npm run dev
 ```
 
-## 🧯 Solución de problemas
+All 3 applications will launch concurrently:
+| Application | URL | Purpose |
+| :--- | :--- | :--- |
+| **POS Web Client** | http://localhost:5173 | React Touch POS interface |
+| **Main Backend** | http://localhost:3001 | Express + Prisma + SQLite inventory & sales API |
+| **Currency Microservice** | http://localhost:3002 | Real-time exchange rate & conversion microservice |
 
-| Problema | Solución |
-|----------|----------|
-| La UI muestra “¿Está corriendo el servidor?” | Ejecuta `npm run dev` (levanta ambos procesos) y revisa que el puerto 3001 esté libre. |
-| `prisma generate` falla tras clonar | `npm run db:generate -w server` |
-| Quiero reiniciar los datos | `npm run seed` |
-| El botón de báscula está deshabilitado | Web Serial sólo existe en Chrome / Edge sobre `localhost` o HTTPS. |
-| Los acentos salen mal en el ticket térmico | Verifica que la impresora soporte CP858 (tabla 19 en ESC/POS). |
+---
 
-## 📝 Licencia
+## 💵 Currency Microservice (`currency-service`)
 
-MIT — úsalo y adáptalo para tu negocio.
+A dedicated REST microservice built with **Express**, **TypeScript**, and **Zod** that consumes external exchange rates and provides currency conversions and offline overrides.
+
+### Endpoints Specification
+
+| Method | Endpoint | Headers Required | Status Codes | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/health` | *None* | `200 OK` | Healthcheck indicator. |
+| `GET` | `/api/v1/rates/usd-mxn` | *None* | `200 OK`, `502 Bad Gateway` | Returns current USD to MXN rate with a 10-minute in-memory cache. |
+| `POST` | `/api/v1/convert` | `Content-Type: application/json` | `200 OK`, `400 Bad Request`, `502 Bad Gateway` | Converts amounts between `MXN` and `USD`. |
+| `POST` | `/api/v1/rates/override` | `Authorization: Bearer <ADMIN_TOKEN>` or `x-api-key: <ADMIN_TOKEN>` | `200 OK`, `400 Bad Request`, `401 Unauthorized` | **Protected endpoint**: Manually sets a fixed rate for offline contingency. |
+| `DELETE` | `/api/v1/rates/override` | `Authorization: Bearer <ADMIN_TOKEN>` or `x-api-key: <ADMIN_TOKEN>` | `200 OK`, `401 Unauthorized` | **Protected endpoint**: Clears the manual override and returns to dynamic API rates. |
+
+---
+
+## 🧪 Testing the Checklist (Evidence 3 Peer Evaluation)
+
+### Automated Test Suite
+Run all unit and integration tests across all workspaces:
+```bash
+npm test
+```
+Run typecheck across all packages:
+```bash
+npm run typecheck
+```
+
+### Manual API Testing (cURL Examples)
+
+#### 1. Fetch current exchange rate (USD -> MXN) [Indicator #3, #4, #9]
+```bash
+curl -X GET http://localhost:3002/api/v1/rates/usd-mxn
+```
+*Expected response (200 OK):*
+```json
+{
+  "from": "USD",
+  "to": "MXN",
+  "rate": 20.45,
+  "lastUpdated": "...",
+  "source": "api"
+}
+```
+
+#### 2. Convert currency with validation [Indicator #3, #4, #5]
+```bash
+# Success (200 OK)
+curl -X POST http://localhost:3002/api/v1/convert \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100, "from": "MXN", "to": "USD"}'
+
+# Input Validation Error (400 Bad Request)
+curl -X POST http://localhost:3002/api/v1/convert \
+  -H "Content-Type: application/json" \
+  -d '{"amount": -50, "from": "MXN", "to": "USD"}'
+```
+
+#### 3. Protected Endpoint: Reject without credentials [Indicator #4, #6]
+```bash
+# Rejected (401 Unauthorized)
+curl -X POST http://localhost:3002/api/v1/rates/override \
+  -H "Content-Type: application/json" \
+  -d '{"manualRate": 20.50}'
+```
+*Expected response (401 Unauthorized):*
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing token"
+}
+```
+
+#### 4. Protected Endpoint: Accept with valid credentials [Indicator #6, #7]
+```bash
+# Authorized (200 OK)
+curl -X POST http://localhost:3002/api/v1/rates/override \
+  -H "Authorization: Bearer fruteria-admin-secret-2026" \
+  -H "Content-Type: application/json" \
+  -d '{"manualRate": 20.50}'
+```
+
+#### 5. Interactive Test Collection [Indicator #11]
+You can also run all pre-configured tests with VS Code REST Client or IntelliJ HTTP Client by opening:
+[`currency-service/requests.http`](currency-service/requests.http)
+
+---
+
+## 💻 POS Client Integration [Indicator #10]
+
+The main React application (`client/`) consumes the currency microservice inside the checkout modal:
+1. Open http://localhost:5173.
+2. Click any fruit/product to add it to the cart.
+3. Click **COBRAR (F2)** to open the payment modal.
+4. Toggle the currency button to **`💵 USD`**.
+5. The client fetches the current exchange rate and converts the total to USD in real-time, calculating bills and change.
+
+---
+
+## 🛡️ Security & Error Handling [Indicator #7, #8]
+- All sensitive credentials and tokens are kept in environment variables (`.env`).
+- `.env` files are ignored by `.gitignore` and `.env.example` templates are provided.
+- Global error handler ensures **no stack traces or internal details are ever leaked to the client**:
+  ```json
+  {
+    "error": "InternalServerError",
+    "message": "Something went wrong"
+  }
+  ```
+
+---
+
+## 📁 Repository Structure
+
+```text
+fruteria-pos/
+├── package.json              # Root npm workspaces configuration
+├── client/                   # Vite + React 19 + TypeScript + Tailwind POS frontend
+│   └── src/
+│       ├── components/PaymentModal.tsx  # Consumes the currency microservice
+│       └── lib/useCurrency.ts           # Hook communicating with currency-service
+├── server/                   # Express + Prisma + SQLite core inventory/sales backend
+└── currency-service/         # Express + TypeScript + Zod currency microservice
+    ├── .env.example          # Environment variables template
+    ├── requests.http         # Ready-to-run HTTP test collection
+    ├── README.md             # Microservice detailed documentation
+    └── src/
+        ├── app.ts            # Express app & error handler
+        ├── routes/           # Rates and Convert routes
+        └── services/         # External API client, cache & override logic
+```
+
+---
+
+## 📜 Available Scripts
+
+- `npm run dev`: Starts `server`, `client`, and `currency-service` concurrently.
+- `npm run dev -w currency-service`: Starts only the currency microservice.
+- `npm run seed`: Resets and seeds the SQLite database with initial demo products.
+- `npm test`: Runs automated test suites across all packages.
+- `npm run typecheck`: Runs TypeScript type checking across all packages.
+- `npm run build`: Builds all workspaces for production.

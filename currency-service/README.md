@@ -1,103 +1,103 @@
-# 💵 Frutería POS - Microservicio de Divisas (`currency-service`)
+# 💵 Currency Microservice (`currency-service`)
 
-Microservicio REST desarrollado en **Express**, **TypeScript** y validado con **Zod**, diseñado para la consulta en tiempo real y conversión de tipos de cambio (USD / MXN), integración con ExchangeRate-API, contingencia offline y conexión con el punto de venta `fruteria-pos`.
-
----
-
-## 🚀 Características Principales
-
-- **Consumo de API Externa**: Consume ExchangeRate-API (`v6.exchangerate-api.com`) con fallback automático a `open.er-api.com` cuando no se dispone de clave de API.
-- **Caché en Memoria**: Almacenamiento temporal de tipos de cambio por 10 minutos para optimizar tiempos de respuesta y no agotar la cuota de peticiones.
-- **Modo de Contingencia Offline**: Endpoint protegido para fijar manualmente el tipo de cambio cuando la sucursal experimenta fallos de conectividad.
-- **Validación Estricta**: Esquemas de validación con Zod asegurando montos positivos y monedas válidas.
-- **Seguridad**:
-  - Middleware de autenticación por Bearer Token y `x-api-key`.
-  - Middleware global de captura de errores sin filtrado de stack traces (`error.stack`) al cliente.
-  - Soporte CORS para comunicación con el frontend.
+A dedicated REST microservice built with **Express**, **TypeScript**, and **Zod** for real-time exchange rates (USD / MXN), third-party API integration with fallback, offline contingency rate override, and seamless connection with the `fruteria-pos` main system.
 
 ---
 
-## 📋 Requisitos Previos
+## 🚀 Key Features
 
-- **Node.js**: v20 o superior
-- **npm**: v10 o superior
+- **Third-Party API Consumption**: Consumes ExchangeRate-API with automatic fallback to `https://open.er-api.com/v6/latest/USD` when no API key is provided.
+- **In-Memory Caching**: 10-minute cache window to preserve API rate limits and deliver fast responses.
+- **Offline Contingency Mode**: Protected admin endpoint to manually set exchange rates if internet connectivity drops.
+- **Strict Input Validation**: Zod schema validation ensuring positive numbers and valid currency codes.
+- **Security & Error Sanitization**:
+  - Bearer Token and `x-api-key` header authentication.
+  - Global error handler that prevents leaking any stack traces (`error.stack`) or internal server details.
+  - CORS enabled for client application requests.
 
 ---
 
-## ⚙️ Instalación y Configuración
+## 📋 Prerequisites
 
-### 1. Navegar a la carpeta del microservicio
+- **Node.js**: >= 20.0.0
+- **npm**: >= 10.0.0
+
+---
+
+## ⚙️ Installation & Configuration
+
+### 1. Navigate to the microservice directory
 ```bash
 cd currency-service
 ```
 
-### 2. Instalar dependencias
+### 2. Install dependencies
 ```bash
 npm install
 ```
-*(Nota: Si ejecutas `npm install` desde la raíz del repositorio, las dependencias de este microservicio se instalarán automáticamente gracias a los workspaces de npm).*
+*(Note: Running `npm install` from the repository root also installs this package via npm workspaces).*
 
-### 3. Configurar variables de entorno
-Copia la plantilla de variables de entorno:
+### 3. Environment Variables
+Copy the example environment file:
 ```bash
-# En Windows (PowerShell):
+# Windows (PowerShell):
 Copy-Item .env.example .env
 
-# En Linux / macOS / Git Bash:
+# Linux / macOS / Git Bash:
 cp .env.example .env
 ```
 
-Contenido de `.env`:
+Configuration in `.env`:
 ```env
 PORT=3002
 EXCHANGE_API_KEY=
 ADMIN_TOKEN=fruteria-admin-secret-2026
 ```
-> **Nota para evaluadores**: Si `EXCHANGE_API_KEY` se deja vacía, el microservicio consumirá automáticamente el endpoint público gratuito de `https://open.er-api.com/v6/latest/USD`, por lo que **no se requiere registrar ninguna tarjeta ni API Key para probarlo**.
+> **Peer Evaluation Note**: If `EXCHANGE_API_KEY` is left blank, the microservice automatically defaults to the free public endpoint `https://open.er-api.com/v6/latest/USD`. No API registration or credit card is required.
 
 ---
 
-## 🏃 Modo de Ejecución
+## 🏃 Execution
 
-### En desarrollo (con recarga automática):
+### Development mode (with hot-reload):
 ```bash
 npm run dev
 ```
 
-### En producción:
+### Run tests:
 ```bash
-npm start
+npm test
 ```
 
-### Verificación de tipos TypeScript:
+### Type checking:
 ```bash
 npm run typecheck
 ```
 
-Por defecto, el servicio se iniciará en `http://localhost:3002`.
+By default, the microservice runs on `http://localhost:3002`.
 
 ---
 
-## 📡 Tabla de Endpoints de la API
+## 📡 API Endpoints Specification
 
-| Método | Endpoint | Cabeceras Requeridas | Códigos de Estado | Descripción |
+| Method | Endpoint | Required Headers | Status Codes | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Ninguna | `200 OK` | Verificación de estado del microservicio. |
-| `GET` | `/api/v1/rates/usd-mxn` | Ninguna | `200 OK`<br>`502 Bad Gateway` | Obtiene el tipo de cambio actual USD -> MXN con caché de 10 minutos. |
-| `POST` | `/api/v1/convert` | `Content-Type: application/json` | `200 OK`<br>`400 Bad Request`<br>`502 Bad Gateway` | Convierte un monto entre MXN y USD. |
-| `POST` | `/api/v1/rates/override` | `Authorization: Bearer <TOKEN>` o `x-api-key: <TOKEN>`<br>`Content-Type: application/json` | `200 OK`<br>`400 Bad Request`<br>`401 Unauthorized` | Fija manualmente la tasa de cambio para contingencia offline. |
-| `DELETE` | `/api/v1/rates/override` | `Authorization: Bearer <TOKEN>` o `x-api-key: <TOKEN>` | `200 OK`<br>`401 Unauthorized` | Elimina la tasa manual y vuelve a consultar la API externa/caché. |
+| `GET` | `/health` | *None* | `200 OK` | Service health status. |
+| `GET` | `/api/v1/rates/usd-mxn` | *None* | `200 OK`<br>`502 Bad Gateway` | Returns current USD -> MXN rate with 10-min in-memory cache. |
+| `POST` | `/api/v1/convert` | `Content-Type: application/json` | `200 OK`<br>`400 Bad Request`<br>`502 Bad Gateway` | Converts an amount between MXN and USD. |
+| `POST` | `/api/v1/rates/override` | `Authorization: Bearer <ADMIN_TOKEN>` or `x-api-key: <ADMIN_TOKEN>`<br>`Content-Type: application/json` | `200 OK`<br>`400 Bad Request`<br>`401 Unauthorized` | **Protected**: Manually overrides exchange rate for offline use. |
+| `DELETE` | `/api/v1/rates/override` | `Authorization: Bearer <ADMIN_TOKEN>` or `x-api-key: <ADMIN_TOKEN>` | `200 OK`<br>`401 Unauthorized` | **Protected**: Clears manual override and resumes dynamic rates. |
 
 ---
 
-## 🧪 Ejemplos de Peticiones cURL para Pruebas
+## 🧪 Testing with cURL
 
-### 1. Obtener tipo de cambio actual (USD -> MXN)
+### 1. Get current exchange rate (USD -> MXN)
 ```bash
 curl -X GET http://localhost:3002/api/v1/rates/usd-mxn
 ```
 
-**Respuesta Exitosa (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "from": "USD",
@@ -110,14 +110,14 @@ curl -X GET http://localhost:3002/api/v1/rates/usd-mxn
 
 ---
 
-### 2. Conversión de divisas (MXN a USD)
+### 2. Convert currency (MXN to USD)
 ```bash
 curl -X POST http://localhost:3002/api/v1/convert \
   -H "Content-Type: application/json" \
   -d '{"amount": 100, "from": "MXN", "to": "USD"}'
 ```
 
-**Respuesta Exitosa (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "originalAmount": 100,
@@ -130,14 +130,14 @@ curl -X POST http://localhost:3002/api/v1/convert \
 
 ---
 
-### 3. Conversión de divisas con error de validación (Monto negativo)
+### 3. Convert currency with validation error (Negative amount)
 ```bash
 curl -X POST http://localhost:3002/api/v1/convert \
   -H "Content-Type: application/json" \
   -d '{"amount": -20, "from": "MXN", "to": "USD"}'
 ```
 
-**Respuesta de Error (400 Bad Request):**
+**Error Response (400 Bad Request):**
 ```json
 {
   "error": "ValidationError",
@@ -158,14 +158,14 @@ curl -X POST http://localhost:3002/api/v1/convert \
 
 ---
 
-### 4. Override de tasa manual sin token (Rechazo 401 Unauthorized)
+### 4. Protected endpoint without credentials (401 Unauthorized)
 ```bash
 curl -X POST http://localhost:3002/api/v1/rates/override \
   -H "Content-Type: application/json" \
   -d '{"manualRate": 20.50}'
 ```
 
-**Respuesta (401 Unauthorized):**
+**Error Response (401 Unauthorized):**
 ```json
 {
   "error": "Unauthorized",
@@ -175,7 +175,7 @@ curl -X POST http://localhost:3002/api/v1/rates/override \
 
 ---
 
-### 5. Override de tasa manual autorizado (200 OK)
+### 5. Protected endpoint with valid credentials (200 OK)
 ```bash
 curl -X POST http://localhost:3002/api/v1/rates/override \
   -H "Authorization: Bearer fruteria-admin-secret-2026" \
@@ -183,7 +183,7 @@ curl -X POST http://localhost:3002/api/v1/rates/override \
   -d '{"manualRate": 20.50}'
 ```
 
-**Respuesta Exitosa (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "message": "Manual exchange rate set successfully",
@@ -194,14 +194,14 @@ curl -X POST http://localhost:3002/api/v1/rates/override \
 
 ---
 
-### 6. Peticiones Interactivas en VS Code
-También se incluye el archivo listo para ejecutar `requests.http` compatible con la extensión **REST Client** de VS Code o el cliente HTTP de JetBrains / WebStorm.
+### 6. Interactive Testing via VS Code
+Use the pre-configured collection [`requests.http`](requests.http) with the **REST Client** extension for VS Code or IntelliJ HTTP client.
 
 ---
 
-## 🛡️ Formato de Errores Globales
+## 🛡️ Error Response Standards
 
-Todas las respuestas de error respetan una estructura JSON uniforme y **nunca exponen trazas de pila (stack traces)** al cliente:
+All error responses strictly omit stack traces and follow clean JSON schemas:
 
 ```json
 {
@@ -210,12 +210,11 @@ Todas las respuestas de error respetan una estructura JSON uniforme y **nunca ex
 }
 ```
 
-Si la API externa falla o no responde, el servicio responde adecuadamente:
+When the upstream external rate API is unreachable:
 ```json
 {
   "error": "ExternalApiError",
   "message": "Failed to fetch exchange rates"
 }
 ```
-con código HTTP `502 Bad Gateway`.
-
+with HTTP status `502 Bad Gateway`.
