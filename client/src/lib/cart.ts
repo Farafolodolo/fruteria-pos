@@ -11,7 +11,7 @@ export interface LineCalc {
 export const calcLine = (l: CartLine): LineCalc => {
   const gross = lineTotal(l.quantity, l.product.price)
   const discount = percentOff(gross, l.discountPercent)
-  return { gross, discount, net: fromCents(toCents(gross)) }
+  return { gross, discount, net: fromCents(toCents(gross) - toCents(discount)) }
 }
 
 export function calcCartTotals(lines: CartLine[]) {
