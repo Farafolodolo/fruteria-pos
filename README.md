@@ -6,26 +6,62 @@ Punto de Venta **local-first** para frutería y abarrotes con venta híbrida **p
 
 ---
 
-## ⚡ Instalación en un solo paso
+## ⚡ Instalación, Ejecución y Pruebas (Install · Run · Test · Deploy)
 
-Requisitos: **Node.js ≥ 20** (probado en 22).
+Requisitos: **Node.js ≥ 20** (probado en Node 20 y 22) y **npm ≥ 10**.
+
+### 1. Install (Clonado limpio)
 
 ```bash
 git clone https://github.com/Farafolodolo/fruteria-pos.git
 cd fruteria-pos
-npm install && npm run seed && npm run dev
+npm ci
+npm run seed
 ```
 
-| Servicio | URL |
-|----------|-----|
-| Interfaz POS | http://localhost:5173 |
-| API local | http://localhost:3001/api/health |
+- `npm ci` (o `npm install`) instala las dependencias de ambos workspaces (`server` y `client`) y ejecuta automáticamente `postinstall` (`prisma generate`).
+- `npm run seed` crea la base de datos local SQLite (`server/prisma/dev.db`) y carga el catálogo inicial de productos mexicanos, ventas demo y fondo de caja. *(Nota: el proyecto funciona sin archivo `.env`; puedes consultar [`.env.example`](.env.example) para variables opcionales como `PORT` o `DATABASE_URL`).*
 
-- `npm install` instala ambos workspaces y genera el cliente de Prisma (`postinstall`).
-- `npm run seed` crea `server/prisma/dev.db` (SQLite) y la puebla con productos mexicanos reales, ventas demo y fondo inicial. **Es destructivo**: reinicia los datos.
-- `npm run dev` levanta API (puerto 3001) y cliente Vite (5173) con recarga en caliente.
+### 2. Run (Desarrollo y Producción)
 
-Otros scripts: `npm test` · `npm run typecheck` · `npm run build`.
+**Modo desarrollo** (levanta API en `:3001` y cliente Vite con HMR en `:5173`):
+```bash
+npm run dev
+```
+
+**Modo producción** (compila el frontend en `client/dist`, valida tipos del backend y sirve UI + API unificadas desde Express en `:3001`):
+```bash
+npm run build
+npm start
+```
+
+| Servicio | URL Desarrollo | URL Producción |
+|----------|----------------|----------------|
+| Interfaz POS | http://localhost:5173 | http://localhost:3001 |
+| Healthcheck API | http://localhost:3001/api/health | http://localhost:3001/api/health |
+
+### 3. Test (Pruebas unitarias automatizadas)
+
+Ejecuta la suite completa de pruebas unitarias (backend y frontend) desde un clon limpio, sin depender de servicios externos ni de una base de datos levantada:
+
+```bash
+npm test
+```
+
+La suite ejecuta **26 pruebas unitarias** (`node:test` + `tsx`) divididas en las 3 categorías clave:
+- **Normal cases**: cálculos estándar de totales por peso (`kg`) y pieza (`UNIT`), cambio por método de pago (`CASH`, `CARD`, `TRANSFER`), margen de utilidad, corte de caja (`computeCashCut`), acumulación de carrito, tramas de báscula serial (`Torrey/Rhino`), codificación `CP858`/`ESC/POS` y enlaces de ticket por WhatsApp.
+- **Edge cases**: cantidades en `0`, decimales de 1 gramo (`0.001 kg`), redondeo financiero *half-up* a centavos sin deriva IEEE-754, descuentos en modo remate (`30%`, `50%`, `100%`), turno de corte de caja vacío y carrito vacío.
+- **Invalid cases**: rechazo de pesos negativos, precios o costos negativos, valores `NaN`/`Infinity`, efectivo recibido insuficiente (`amountPaid < total`), tipos de corte inválidos y tramas seriales corruptas.
+
+### 4. Deploy (Despliegue a producción)
+
+El repositorio incluye [`render.yaml`](render.yaml) para despliegue automatizado en **Render** (o ejecución en servidor Node.js propio) y el proceso completo de 5 etapas (**Before → Deploy → Verify → Roll back → Record**) documentado paso a paso en:
+
+👉 **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**
+
+- **Build command**: `npm ci && npm run seed && npm run build`
+- **Start command**: `npm start`
+- **Health check endpoint**: `GET /api/health` → `{"status":"ok","ok":true,"time":"..."}`
 
 ---
 
@@ -183,15 +219,20 @@ Referencia de endpoints en [`docs/API.md`](docs/API.md).
 
 ---
 
-## 🌿 Flujo de trabajo Git
+## 🌿 Flujo de trabajo Git, CI y Branch Protection
 
-Cada hito se desarrolló en una rama temática con *Conventional Commits* y se fusionó a `main` con `--no-ff`:
+Cada hito se desarrolló en una rama temática con *Conventional Commits* y se integró a `main`:
 
 ```
 setup/project-scaffolding        feat/db-sqlite-prisma           feat/backend-api-engine
 feat/pos-terminal-ui             feat/scale-and-scanner-integration
 feat/waste-and-discount-system   feat/cash-flow-and-reports      docs/production-readme
 ```
+
+### Integración Continua (GitHub Actions) y Reglas de Rama
+- **Workflow CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))**: Se ejecuta automáticamente en cada `push` y `pull_request` hacia `main`. Corre `npm ci`, `npx prisma generate`, `npm test` y `npm run build` sobre `ubuntu-latest` con Node.js 20.
+- **Protección de `main` (Branch Protection)**: La rama `main` requiere Pull Request y que el status check **`Test and Build`** (`test-and-build`) pase en verde antes de permitir cualquier merge.
+- **Bitácora de ingeniería**: Consulta el registro cronológico de decisiones, pruebas, CI y despliegue en [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md).
 
 ```bash
 git log --oneline --graph
