@@ -4,22 +4,56 @@ import { fromCents, lineTotal, sumMoney, toCents } from './money'
 
 export type PaymentKey = 'CASH' | 'CARD' | 'TRANSFER'
 
-/**
- * Calcula el corte de caja de un día (hora local del servidor).
- * Corte X: informativo, puede repetirse durante el turno.
- * Corte Z: cierre del día (mismos cálculos, etiquetado como cierre).
- */
-export async function buildCashCut(type: 'X' | 'Z', date?: string) {
-  const { from, to } = dayRange(date)
+export interface CashCutSaleItemInput {
+  productId: string
+  productName: string
+  quantity: number
+  subtotal: number
+  discount: number
+  product: { cost: number }
+}
 
-  const [sales, movements, waste] = await Promise.all([
-    prisma.sale.findMany({
-      where: { createdAt: { gte: from, lt: to } },
-      include: { items: { include: { product: true } } },
-    }),
-    prisma.cashMovement.findMany({ where: { createdAt: { gte: from, lt: to } }, orderBy: { createdAt: 'asc' } }),
-    prisma.wasteRecord.findMany({ where: { recordedAt: { gte: from, lt: to } }, include: { product: true } }),
-  ])
+export interface CashCutSaleInput {
+  paymentMethod: PaymentKey
+  subtotal: number
+  discount: number
+  total: number
+  items: CashCutSaleItemInput[]
+}
+
+export interface CashCutMovementInput {
+  type: 'INFLOW' | 'OUTFLOW'
+  amount: number
+  category: string
+}
+
+export interface CashCutWasteInput {
+  estimatedLoss: number
+}
+
+/**
+ * Función pura de cálculo de corte de caja X / Z (sin dependencia de BD).
+ */
+export function computeCashCut<M extends CashCutMovementInput>(
+  type: 'X' | 'Z',
+  date: string,
+  sales: CashCutSaleInput[],
+  movements: M[],
+  waste: CashCutWasteInput[],
+) {
+  if (type !== 'X' && type !== 'Z') {
+    throw new RangeError('Tipo de corte inválido: debe ser X o Z')
+  }
+  for (const m of movements) {
+    if (!Number.isFinite(m.amount) || m.amount < 0) {
+      throw new RangeError('Monto de movimiento de caja inválido')
+    }
+  }
+  for (const w of waste) {
+    if (!Number.isFinite(w.estimatedLoss) || w.estimatedLoss < 0) {
+      throw new RangeError('Pérdida estimada de merma inválida')
+    }
+  }
 
   const byMethod: Record<PaymentKey, { count: number; total: number }> = {
     CASH: { count: 0, total: 0 },
@@ -48,8 +82,7 @@ export async function buildCashCut(type: 'X' | 'Z', date?: string) {
   }
   const grossProfit = fromCents(netSalesCents - costCents)
 
-  const sum = (pred: (m: (typeof movements)[number]) => boolean) =>
-    sumMoney(movements.filter(pred).map((m) => m.amount))
+  const sum = (pred: (m: M) => boolean) => sumMoney(movements.filter(pred).map((m) => m.amount))
   const openingFloat = sum((m) => m.category === 'FONDO_INICIAL')
   const otherInflows = sum((m) => m.type === 'INFLOW' && m.category !== 'FONDO_INICIAL')
   const outflows = sum((m) => m.type === 'OUTFLOW')
@@ -63,7 +96,7 @@ export async function buildCashCut(type: 'X' | 'Z', date?: string) {
 
   return {
     type,
-    date: from.toISOString().slice(0, 10),
+    date,
     generatedAt: new Date().toISOString(),
     sales: {
       count: sales.length,
@@ -84,4 +117,24 @@ export async function buildCashCut(type: 'X' | 'Z', date?: string) {
     topProducts: [...products.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
     movements,
   }
+}
+
+/**
+ * Calcula el corte de caja de un día (hora local del servidor).
+ * Corte X: informativo, puede repetirse durante el turno.
+ * Corte Z: cierre del día (mismos cálculos, etiquetado como cierre).
+ */
+export async function buildCashCut(type: 'X' | 'Z', date?: string) {
+  const { from, to } = dayRange(date)
+
+  const [sales, movements, waste] = await Promise.all([
+    prisma.sale.findMany({
+      where: { createdAt: { gte: from, lt: to } },
+      include: { items: { include: { product: true } } },
+    }),
+    prisma.cashMovement.findMany({ where: { createdAt: { gte: from, lt: to } }, orderBy: { createdAt: 'asc' } }),
+    prisma.wasteRecord.findMany({ where: { recordedAt: { gte: from, lt: to } }, include: { product: true } }),
+  ])
+
+  return computeCashCut(type, from.toISOString().slice(0, 10), sales, movements, waste)
 }
