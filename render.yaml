@@ -3,7 +3,7 @@ services:
     name: fruteria-pos
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run seed && npm run build
+    buildCommand: npm ci --include=dev && npm run seed && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
