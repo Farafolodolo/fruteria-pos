@@ -59,7 +59,7 @@ El repositorio incluye [`render.yaml`](render.yaml) para despliegue automatizado
 
 👉 **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**
 
-- **Build command**: `npm ci && npm run seed && npm run build`
+- **Build command**: `npm ci --include=dev && npm run seed && npm run build`
 - **Start command**: `npm start`
 - **Health check endpoint**: `GET /api/health` → `{"status":"ok","ok":true,"time":"..."}`
 

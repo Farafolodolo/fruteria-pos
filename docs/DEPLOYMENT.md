@@ -17,7 +17,7 @@ Before initiating any deployment, complete every item in this checklist:
    - Verify that the GitHub Actions workflow **CI (`test-and-build`)** is green (`✅`) on `main`.
    - Run the clean validation suite locally:
      ```bash
-     npm ci
+     npm ci --include=dev
      npm test
      npm run build
      ```
@@ -58,9 +58,9 @@ The repository includes a declarative [`render.yaml`](../render.yaml) Blueprint 
 2. Connect the GitHub repository `fruteria-pos` and select the `main` branch.
 3. If configuring manually as a **Web Service**, enter the following exact settings:
    - **Runtime**: `Node`
-   - **Build Command**:
+   - **Build Command** *(note `--include=dev` is required so `tsx`, `prisma`, `typescript`, and `vite` are installed when `NODE_ENV=production`)*:
      ```bash
-     npm ci && npm run seed && npm run build
+     npm ci --include=dev && npm run seed && npm run build
      ```
    - **Start Command**:
      ```bash
@@ -73,7 +73,9 @@ The repository includes a declarative [`render.yaml`](../render.yaml) Blueprint 
 4. Click **Deploy Web Service** and wait for the build and startup logs to report:
    `🍎 Frutería POS API escuchando en http://localhost:<PORT>`
 
-> **Cost & Resource Note**: On Render's `free` plan, the service automatically spins down after 15 minutes of inactivity and uses ephemeral disk storage. If you provision a paid instance or persistent disk during testing, **delete or suspend the service in Render Dashboard → Settings → Delete Service** immediately after evaluation to avoid unexpected charges.
+![Render Deployment Succeeded](./images/imagen%20de%20la%20build%20correcta%20en%20render.png)
+
+> **Cost & Resource Note**: On Render's `free` plan, the service automatically spins down after 15 minutes of inactivity and uses ephemeral disk storage. After completing verification or if you provision a paid instance, **suspend or delete the service in Render Dashboard → Settings** to avoid unnecessary resource usage.
 
 ### Option B: On-Premise / Local POS Terminal Production Build
 
@@ -82,9 +84,9 @@ The repository includes a declarative [`render.yaml`](../render.yaml) Blueprint 
    git clone https://github.com/Farafolodolo/fruteria-pos.git
    cd fruteria-pos
    ```
-2. Install exact locked dependencies and generate the Prisma client:
+2. Install exact locked dependencies (including build tools) and generate the Prisma client:
    ```bash
-   npm ci
+   npm ci --include=dev
    ```
 3. Initialize the database schema (and optionally seed initial catalog on first install):
    ```bash
@@ -112,17 +114,20 @@ Immediately after every deployment, run the following 4 smoke tests before marki
 
 1. **Health Endpoint Check (`/api/health`)**
    ```bash
-   curl -s http://localhost:3001/api/health
+   curl -s https://fruteria-pos-1.onrender.com/api/health
    ```
-   *(Replace `http://localhost:3001` with your Render URL `https://<your-app>.onrender.com` for cloud deploys).*
    - **Expected Output**: HTTP `200 OK` with JSON payload containing `"status": "ok"`:
      ```json
-     {"status":"ok","ok":true,"time":"2026-11-23T17:10:00.000Z"}
+     {"status":"ok","ok":true,"time":"2026-11-23T18:03:35.248Z"}
      ```
 
+   ![Health Check Verification](./images/health%20funcionando.png)
+
 2. **Frontend UI & Static Bundle Check**
-   - Open the root URL (`/` in browser).
-   - Verify the POS terminal loads with the 4 tabs (**Frutas**, **Verduras**, **Abarrotes**, **Más Vendidos**) and the **Modo emulador** indicator in the header.
+   - Open `https://fruteria-pos-1.onrender.com/` in the browser.
+   - Verify the POS terminal loads with the 4 tabs (**Frutas**, **Verduras**, **Abarrotes**, **Más Vendidos**), the seeded product catalog, and the **Modo emulador** indicator in the header.
+
+   ![Frontend UI Verification](./images/imagen%20de%20la%20UI%20funcionando.png)
 
 3. **Core POS Business Flow Check**
    - Click **Plátano Tabasco** (`$22.00/kg`), enter `1.350 kg` in the weight modal, and confirm the calculated total is **$29.70**.
@@ -139,8 +144,8 @@ Immediately after every deployment, run the following 4 smoke tests before marki
 If any verification step in Stage 3 fails, execute a rollback immediately:
 
 ### 1. Instant Platform Rollback (Render)
-1. Open the service in the **Render Dashboard** and navigate to **Events** (or **Deploys**).
-2. Locate the last known working deployment marked **Live / Deployed**.
+1. Open the service (`fruteria-pos-1`) in the **Render Dashboard** and navigate to **Events** (or **Deploys**).
+2. Locate the last known working deployment marked **Deploy succeeded | Live**.
 3. Click **Rollback to this deploy** to restore the previous container image and build artifact within seconds.
 
 ### 2. Git Repository Rollback
@@ -163,10 +168,10 @@ npm start
 
 ## 5. Record (Release & Deployment Log)
 
-Every deployment or rollback must be recorded in the table below:
+Every deployment or rollback is recorded in the table below:
 
 | Date (YYYY-MM-DD) | Version / Tag | Commit SHA | Environment | Responsible | Status | Notes |
 |-------------------|---------------|------------|-------------|-------------|--------|-------|
-| 2026-11-23 | `v1.0.0` | `cb8bc72` | Local Dev | Team | ✅ Success | Initial POS baseline with SQLite & hardware emulator |
-| 2026-11-23 | `v1.1.0-rc1` | `252f4ff` | CI / Staging | Team | ✅ Verified | Added `/api/health`, static `client/dist` serving, 26 unit tests, and GitHub Actions CI |
-| `[YYYY-MM-DD]` | `v1.1.0` | `[COMMIT_SHA]` | Render Cloud | `[YOUR_NAME]` | `[✅ Live / ⏹️ Teardown]` | `[Add deployed URL, smoke test result, and resource teardown note]` |
+| 2026-11-23 | `v1.0.0` | [`cb8bc72`](https://github.com/Farafolodolo/fruteria-pos/commit/cb8bc72) | Local Dev | Farafolodolo | ✅ Success | Initial POS baseline with SQLite & hardware emulator |
+| 2026-11-23 | `v1.1.0-rc1` | [`252f4ff`](https://github.com/Farafolodolo/fruteria-pos/commit/252f4ff) | GitHub Actions CI | Farafolodolo | ✅ Verified | Added `/api/health`, static `client/dist` serving, 26 unit tests, and CI workflow |
+| 2026-11-23 | `v1.1.0` | [`5f9ea59`](https://github.com/Farafolodolo/fruteria-pos/commit/5f9ea59) | Render Cloud (`fruteria-pos-1`) | Farafolodolo | ✅ Live (Verified & Teardown ready) | Deployed to `https://fruteria-pos-1.onrender.com` using `npm ci --include=dev && npm run seed && npm run build`; verified `/api/health` and POS UI |
